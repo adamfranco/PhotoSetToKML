@@ -760,6 +760,75 @@ class HtmlVisitor {
 }
 
 /**
+ * Prints out the photoset as a CSV file
+ * 
+ * @since 11/7/06
+ * @package com.adamfranco.flickr
+ * 
+ * @copyright Copyright &copy; 2006, Adam Franco
+ * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License (GPL)
+ *
+ * @version $Id$
+ */
+class TabVisitor {
+	
+	/**
+	 * @var string $photoSize; 
+	 * @access private
+	 * @since 8/22/07
+	 */
+	private $photoSize = 'medium';
+	
+	/**
+	 * Set the photo size
+	 * 
+	 * @param string $size
+	 * @return void
+	 * @access public
+	 * @since 8/22/07
+	 */
+	public function setSize ($size) {
+		$sizes = array('square', 'thumb', 'small', 'medium', 'large', 'original');
+		if (!in_array($size, $sizes))
+			throw new Exception("Unknown size, '$size'.");
+		
+		$this->photoSize = $size;
+	}
+	
+	/**
+	 * Print out the photoset
+	 * 
+	 * @return void
+	 * @access public
+	 * @since 11/7/06
+	 */
+	function visitPhotoset ( $photoset ) {
+		header('Content-Type: text/plain; charset=UTF-8');
+		print $photoset->title."\n";
+		print "Title	Flickr URL	Image URL	Coordinates\n";
+		
+		while ($photoset->hasNextPhoto()) {
+			$photo = $photoset->nextPhoto();
+			$photo->acceptVisitor($this);
+		}
+	}
+	
+	/**
+	 * Print out the photo
+	 * 
+	 * @return void
+	 * @access public
+	 * @since 11/7/06
+	 */
+	function visitPhoto ( $photo ) {
+		print $photo->title."\t" ;
+		print $photo->photoPageUrl."\t";
+		print $photo->getImageUrl($this->photoSize)."\t";
+		print $photo->longitude.",".$photo->latitude.",0\n";
+	}
+}
+
+/**
  * This class overloads some of the PEAR Flickr API methods to return a DomDocument
  * instead of using XML_tree
  * 
@@ -1216,6 +1285,8 @@ header("Content-type: text/html; charset=utf-8");
 			This will speed up loading of your photo set and reduce the load on my server.</div>
 		<div class='notes'>In GoogleMaps click on the 'Link to this page' link to get an HTML snippet to embed the map in your website.</div>
 		
+		<br/><input type='radio' name='format' value='tab'/>
+		<strong>Tab Delimited File</strong> - Useful for importing into spreadsheets.
 		</div>
 		<div class='lines_chooser'>
 		<input type='checkbox' name='paths' value='true' />
@@ -1290,6 +1361,34 @@ else if (isset($_REQUEST['format']) && $_REQUEST['format'] == 'open_google_maps'
 	$url = "http://maps.google.com/maps?f=q&hl=en&ie=UTF8&om=1&t=h&q=".rawurlencode($url.implode("&", $params));
 	header("Location: $url");
 	exit;
+}
+
+// Output a Tab-Delimited file
+else if (isset($_REQUEST['format']) && $_REQUEST['format'] == 'tab') {
+    try {
+        $photoset = new Photoset (
+            new AdamsFlickr_API(array('api_key'  => '431f47e7c3952108d31df985e7b3b5a5')),
+            $_REQUEST['set']);
+            
+        $visitor = new TabVisitor;
+        if (isset($_REQUEST['size'])) {
+			$visitor->setSize($_REQUEST['size']);
+		}
+        $photoset->acceptVisitor($visitor);
+    } catch (Exception $e) {
+        header("HTTP/1.0 500 ".$e->getMessage());
+        header("Content-type: text/html");
+        print "
+<html>
+<head>
+</head>
+<body>
+    <h1>An error has occurred:</h1>
+    <p>".$e->getMessage()."</p>
+</body>
+</html>
+";
+    }	
 }
 
 // Output the KML
