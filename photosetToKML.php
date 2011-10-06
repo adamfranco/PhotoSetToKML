@@ -50,8 +50,7 @@
  * @version $Id$
  */ 
 
-ini_set('display_errors', true);
-ini_set('magic_quotes_gpc', false);
+ini_set('display_errors', 1);
 require_once 'Flickr/API.php';
 
 /**
