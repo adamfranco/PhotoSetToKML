@@ -2,8 +2,9 @@
 
 /**
  * Photo Set to KML
- * http://www2.adamfranco.com/photosetToKML.php
- * http://www.adamfranco.com/?p=43
+ * Use it: http://www2.adamfranco.com/photosetToKML.php
+ * About it: http://www.adamfranco.com/2007/08/23/flickr-photo-set-to-kml/
+ * Source: https://github.com/adamfranco/PhotoSetToKML
  *
  * Features:
  *
@@ -1268,7 +1269,7 @@ header("Content-type: text/html; charset=utf-8");
 	</div>
 	</form>
 	<p class='about'>Photo Set to KML was written by <a href='http://www.adamfranco.com'>Adam Franco</a> and is licensed under the <a href='http://www.gnu.org/copyleft/gpl.html'>GNU General Public License (GPL)</a> version 3 or later.
-	<br/><br/><a href='http://www.adamfranco.com/?p=43'>More information</a>.</p>
+	<br/><br/><a href='http://www.adamfranco.com/2007/08/23/flickr-photo-set-to-kml/'>More information</a>, <a href='https://github.com/adamfranco/PhotoSetToKML'>Source Code on Github</a>.</p>
 </body>
 </html>
 ";
