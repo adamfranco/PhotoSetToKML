@@ -174,10 +174,10 @@ class Photoset
 	 * 
 	 * @param string $name
 	 * @return void
-	 * @access private
+	 * @access public
 	 * @since 8/21/07
 	 */
-	private function __set ($name, $val) {		
+	public function __set ($name, $val) {
 		$this->properties[$name] = $val;
 	}
 	
@@ -186,10 +186,10 @@ class Photoset
 	 * 
 	 * @param string $name
 	 * @return void
-	 * @access private
+	 * @access public
 	 * @since 8/21/07
 	 */
-	private function __unset ($name) {		
+	public function __unset ($name) {
 		unset($this->properties[$name]);
 	}
 	
@@ -408,10 +408,10 @@ class Photo
 	 * 
 	 * @param string $name
 	 * @return void
-	 * @access private
+	 * @access public
 	 * @since 8/21/07
 	 */
-	private function __set ($name, $val) {		
+	public function __set ($name, $val) {
 		$this->properties[$name] = $val;
 	}
 	
@@ -420,10 +420,10 @@ class Photo
 	 * 
 	 * @param string $name
 	 * @return void
-	 * @access private
+	 * @access public
 	 * @since 8/21/07
 	 */
-	private function __unset ($name) {		
+	public function __unset ($name) {
 		unset($this->properties[$name]);
 	}
 	
@@ -825,6 +825,7 @@ class AdamsFlickr_API
 		
 			if ($this->_http_code){
 				$this->_err_msg = "Bad response from remote server: HTTP status code $this->_http_code";
+                error_log("Bad response from remote server:\n\tHTTP status code: $this->_http_code \n\tResponse body: $this->_http_body");
 			}else{
 				$this->_err_msg = "Couldn't connect to remote server";
 			}
@@ -1009,8 +1010,7 @@ class KmlVisitor {
 // 		header("Content-type: text/xml; charset=utf-8");
 		header("Content-Type: application/vnd.google-earth.kml+xml;");
 		header('Content-Disposition: attachment; filename="'.$photoset->title.'.kml"');
-		print 
-'<?xml version="1.0" encoding="UTF-8"?>
+		print '<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://earth.google.com/kml/2.1">
 <Document>
 	<name>'.htmlspecialchars($photoset->title).'.kml</name>
@@ -1031,9 +1031,8 @@ class KmlVisitor {
 		<name>'.htmlspecialchars($photoset->title).'</name>
 		<description>'.htmlspecialchars($photoset->description).'</description>
 		<Folder>
-			<name>Photos</name>';
-		
-		
+		<name>Photos</name>';
+
 		while ($photoset->hasNextPhoto()) {
 			$photo = $photoset->nextPhoto();
 			$photo->acceptVisitor($this);
@@ -1087,23 +1086,26 @@ class KmlVisitor {
 			print "\n\t\t\t<Placemark>";
 			
 			print "\n\t\t\t\t<name>".htmlspecialchars($photo->title)."</name>";
-			
+            
 			print "\n\t\t\t\t<description><![CDATA[";
-			print "<a href='".$photo->photoPageUrl."' title='Open photo page on Flickr.'>";
-			print "<img src='".$photo->getImageUrl($this->photoSize)."'/>";
-			print "</a>\n";
 			
 			print "<p>".$photo->description."</p>";
 			
-			print "<p>Photo by ";
-			print "<a href='http://www.flickr.com/people/".$photo->ownerId."/' title='Profile on Flickr'>";
-			if ($photo->ownerRealName)
-				print $photo->ownerRealName;
-			else
-				print $photo->ownerUserName;
-			print "</a>. <a href='".$photo->photoPageUrl."' title='Open photo page on Flickr.'>View on Flickr.</p>";
+            if (isset($_REQUEST['userLink']) && $_REQUEST['userLink'] == 'true') {
+                print "<p>Photo by ";
+                print "<a href='http://www.flickr.com/people/".$photo->ownerId."/' title='Profile on Flickr'>";
+                if ($photo->ownerRealName)
+                    print $photo->ownerRealName;
+                else
+                    print $photo->ownerUserName;
+                print "</a>. ";
+            }
+            
+            print "<a href='".$photo->photoPageUrl."' title='Open photo page on Flickr.'>View on Flickr.</p>";
 			
 			print "]]></description>";
+            
+            print "<ExtendedData><Data name='gx_media_links'><value>".$photo->getImageUrl($this->photoSize)."</value></Data></ExtendedData>";
 			
 			if ($this->photoIcon == 'camera')
 				print "\n\t\t\t\t<styleUrl>#flickr_photo</styleUrl>";
@@ -1189,7 +1191,7 @@ header("Content-type: text/html; charset=utf-8");
 	<h1>Flickr Photo Set to KML</h1>
 	<form action='".$_SERVER['PHP_SELF']."' method='get'>
 		<div>Enter the id number of the <a href='http://www.flickr.com/'>Flickr</a> photo set you wish to generate KML for:
-		<div class='set'>http://www.flickr.com/photos/xxxxxxxx/sets/<input type='text' name='set'/>/</div>
+		<div class='set'>http://www.flickr.com/photos/xxxxxxxx/albums/<input type='text' name='set'/>/</div>
 		<input type='submit'/>
 		<h2>Options:</h2>
 		<div>Photo size:
@@ -1233,7 +1235,7 @@ header("Content-type: text/html; charset=utf-8");
 		
 		</div>
 		
-		
+<!--
 		<div class='photo_style_chooser'>
 		What icon/style to use for each image:
 		
@@ -1246,7 +1248,6 @@ header("Content-type: text/html; charset=utf-8");
 		<div><input type='radio' name='photo_style' value='camera'/>
 		<strong>Camera</strong> - The default GoogleMaps 'photo'/'camera' icon.</div>
 		
-<!--
 		<div><input type='radio' name='photo_style' value='icon_url'/>
 		<strong>Icon URL</strong> - Enter the URL of the icon you wish to use. (png, gif, or jpg)
 		<br/><input type='text' size='80' name='icon_url' value='http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'/></div>
@@ -1264,8 +1265,10 @@ header("Content-type: text/html; charset=utf-8");
 	&lt;/Icon&gt;
 &lt;/IconStyle&gt;</textarea><br/>&lt;/Style&gt;</div>
 -->
-		
-		</div>
+        <div>
+            <input type='checkbox' name='userLink' value='true' checked='checked'/>
+            Include link to flickr user profile.
+        </div>
 	</div>
 	</form>
 	<p class='about'>Photo Set to KML was written by <a href='http://www.adamfranco.com'>Adam Franco</a> and is licensed under the <a href='http://www.gnu.org/copyleft/gpl.html'>GNU General Public License (GPL)</a> version 3 or later.
@@ -1297,7 +1300,11 @@ else if (isset($_REQUEST['format']) && $_REQUEST['format'] == 'open_google_maps'
 else {
 	try {
 		$photoset = new Photoset (
-			new AdamsFlickr_API(array('api_key'  => '431f47e7c3952108d31df985e7b3b5a5')),
+			new AdamsFlickr_API(array(
+                    'api_key'  => '431f47e7c3952108d31df985e7b3b5a5',
+                    'endpoint'	=> 'https://www.flickr.com/services/rest/',
+                    'auth_endpoint'	=> 'https://www.flickr.com/services/auth/?',
+            )),
 			$_REQUEST['set']);
 			
 		// $visitor = new HtmlVisitor;
