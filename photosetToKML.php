@@ -53,6 +53,7 @@
 
 ini_set('display_errors', 1);
 require_once 'Flickr/API.php';
+    #require_once 'HashMap.php'
 
 /**
  * Photosets are Flickr's version of slideshows.
@@ -678,89 +679,6 @@ class FlickrException
 }
 
 /**
- * Prints out the photoset as an html page
- * 
- * @since 11/7/06
- * @package com.adamfranco.flickr
- * 
- * @copyright Copyright &copy; 2006, Adam Franco
- * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License (GPL)
- *
- * @version $Id$
- */
-class HtmlVisitor {
-	
-	/**
-	 * @var string $photoSize; 
-	 * @access private
-	 * @since 8/22/07
-	 */
-	private $photoSize = 'medium';
-	
-	/**
-	 * Set the photo size
-	 * 
-	 * @param string $size
-	 * @return void
-	 * @access public
-	 * @since 8/22/07
-	 */
-	public function setSize ($size) {
-		$sizes = array('square', 'thumb', 'small', 'medium', 'large', 'original');
-		if (!in_array($sizes, $size))
-			throw new Exception("Unknown size, '$size'.");
-		
-		$this->photoSize = $size;
-	}
-
-	/**
-	 * Print out the photoset
-	 * 
-	 * @return void
-	 * @access public
-	 * @since 11/7/06
-	 */
-	function visitPhotoset ( $photoset ) {
-		print "
-<html>
-<head>
-	<title>".$photoset->title."</title>
-</head>
-<body>
-		
-";
-		print "<h1>".$photoset->title."</h1>" ;
-		print "(".$photoset->numPhotos." photos)<br/>";
-		print $photoset->description;
-		
-		while ($photoset->hasNextPhoto()) {
-			$photo = $photoset->nextPhoto();
-			$photo->acceptVisitor($this);
-		}
-		print "
-</body>
-</html>";
-	}
-	
-	/**
-	 * Print out the photo
-	 * 
-	 * @return void
-	 * @access public
-	 * @since 11/7/06
-	 */
-	function visitPhoto ( $photo ) {
-		print "<h2>".$photo->title."</h2>" ;
-		print "<img src='".$photo->getImageUrl($this->photoSize)."' /><br/>";
-		print $photo->description;
-		print "<pre>";
-		foreach (get_object_vars($photo) as $key => $val)
-			print "\n\t".$key." = ".$val;
-		print "</pre>";
-	}
-}
-
-/**
  * This class overloads some of the PEAR Flickr API methods to return a DomDocument
  * instead of using XML_tree
  * 
@@ -997,6 +915,82 @@ class KmlVisitor {
 		
 		$this->photoIcon = $icon;
 	}
+    
+    /**
+     * Print the Header for the KML File
+     *
+     * @param string $photosetTitle
+     * @param string $photosetDescription
+     * @return void
+     * @access private
+     * @since 7/26/16
+     */
+    private function printKMLHeader ($photosetTitle, $photosetDescription) {
+        header("Content-Type: application/vnd.google-earth.kml+xml;");
+        header('Content-Disposition: attachment; filename="'.$photosetTitle.'.kml"');
+        
+        print '<?xml version="1.0" encoding="UTF-8"?>
+            <kml xmlns="http://earth.google.com/kml/2.1">
+            <Document>
+                <name>'.htmlspecialchars($photosetTitle).'.kml</name>
+                <Style id="flickr_photo">
+                    <IconStyle>
+                        <Icon>
+                        <href>http://maps.google.com/mapfiles/kml/pal4/icon46.png</href>
+                        </Icon>
+                    </IconStyle>
+                </Style>
+                <Style id="flickr_photo_path">
+                    <LineStyle>
+                        <color>df0000ff</color>
+                        <width>2</width>
+                    </LineStyle>
+                </Style>
+                <Folder>
+                    <name>'.htmlspecialchars($photosetTitle).'</name>
+                    <description>'.htmlspecialchars($photosetDescription).'</description>
+                    <Folder>
+                        <name>Photos</name>';
+    }
+
+    /**
+     * Print the Footer for the KML File
+     *
+     * @return void
+     * @access private
+     * @since 7/26/16
+     */
+    private function printKMLFooter () {
+        print '
+        </Folder>';
+        if ($this->printLines) {
+            if ($this->printLines == 'chron')
+                array_multisort($this->takenDates, SORT_STRING, $this->linePoints);
+            
+            if ($this->printLines == 'upload')
+                array_multisort($this->uploadDates, SORT_NUMERIC, $this->linePoints);
+            
+            print '
+            <Placemark>
+            <name>Photo Path</name>
+            <styleUrl>#flickr_photo_path</styleUrl>
+            <MultiGeometry>
+            <LineString>
+            <coordinates> ';
+            
+            print implode(' ', $this->linePoints);
+            
+            print ' </coordinates>
+            </LineString>
+            </MultiGeometry>
+            </Placemark>';
+        }
+            
+        print '
+        </Folder>
+        </Document>
+        </kml>';
+    }
 
 	/**
 	 * Print out the photoset
@@ -1006,72 +1000,14 @@ class KmlVisitor {
 	 * @since 11/7/06
 	 */
 	function visitPhotoset ( $photoset ) {
-// 		header("Content-type: text/plain");
-// 		header("Content-type: text/xml; charset=utf-8");
-		header("Content-Type: application/vnd.google-earth.kml+xml;");
-		header('Content-Disposition: attachment; filename="'.$photoset->title.'.kml"');
-		print '<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://earth.google.com/kml/2.1">
-<Document>
-	<name>'.htmlspecialchars($photoset->title).'.kml</name>
-	<Style id="flickr_photo">
-		<IconStyle>
-			<Icon>
-				<href>http://maps.google.com/mapfiles/kml/pal4/icon46.png</href>
-			</Icon>
-		</IconStyle>
-	</Style>
-	<Style id="flickr_photo_path">
-		<LineStyle>
-			<color>df0000ff</color>
-			<width>2</width>
-		</LineStyle>
-	</Style>
-	<Folder>
-		<name>'.htmlspecialchars($photoset->title).'</name>
-		<description>'.htmlspecialchars($photoset->description).'</description>
-		<Folder>
-		<name>Photos</name>';
+        $this->printKMLHeader($photoset->title, $photoset->description);
 
 		while ($photoset->hasNextPhoto()) {
 			$photo = $photoset->nextPhoto();
 			$photo->acceptVisitor($this);
 		}
 		
-		print '
-		</Folder>';
-		if ($this->printLines) {
-			if ($this->printLines == 'chron')
-				array_multisort($this->takenDates, SORT_STRING, $this->linePoints);
-				
-			if ($this->printLines == 'upload')
-				array_multisort($this->uploadDates, SORT_NUMERIC, $this->linePoints);
-		
-			print '
-		<Placemark>
-			<name>Photo Path</name>
-			<styleUrl>#flickr_photo_path</styleUrl>
-			<MultiGeometry>
-				<LineString>
-					<coordinates> ';
-		
-			print implode(' ', $this->linePoints);
-		
-			print ' </coordinates>
-				</LineString>
-			</MultiGeometry>
-		</Placemark>';
-		}
-		
-		print '
-	</Folder>
-</Document>
-</kml>';
-// 
-// 		print "\nTaken: ";
-// 		print implode("\n\t", $this->takenDates);
-// 		print "\nPosted: ";
-// 		print implode("\n\t", $this->postDates);
+        $this->printKMLFooter();
 	}
 	
 	/**
@@ -1204,22 +1140,7 @@ header("Content-type: text/html; charset=utf-8");
 				<option value='original'>original</option>
 			</select>
 		</div>
-		<div class='format_chooser'>
-		<input type='radio' name='format' value='kml' checked='checked'/>
-		<strong>KML File</strong> - This file can be opened in Google Earth.
-		
-		<br/><input type='radio' name='format' value='open_google_maps'/>
-		<strong>Open in GoogleMaps</strong> - (small photo set please, small photos recommended) 
-		<div class='notes'>Large photo sets make take a long time to generate, sometimes causing Google Maps to time out. If you want to share a large photo set, please use the following steps:
-			<ol>
-				<li>download the KML file</li>
-				<li>upload it to your own blog or web site</li>
-				<li>paste its URL into GoogleMaps</li>
-			</ol>
-			This will speed up loading of your photo set and reduce the load on my server.</div>
-		<div class='notes'>In GoogleMaps click on the 'Link to this page' link to get an HTML snippet to embed the map in your website.</div>
-		
-		</div>
+    
 		<div class='lines_chooser'>
 		<input type='checkbox' name='paths' value='true' />
 		Draw lines (paths) between photos.
@@ -1235,36 +1156,6 @@ header("Content-type: text/html; charset=utf-8");
 		
 		</div>
 		
-<!--
-		<div class='photo_style_chooser'>
-		What icon/style to use for each image:
-		
-		<div><input type='radio' name='photo_style' value='square' checked='checked' />
-		<strong>Square Thumbnail</strong> - The square thumbnail generated by Flickr for each photo.</div>
-		
-		<div><input type='radio' name='photo_style' value='thumb'/>
-		<strong>Thumbnail</strong> - The proportionally-sized thumbnail generated by Flickr for each photo.</div>
-		
-		<div><input type='radio' name='photo_style' value='camera'/>
-		<strong>Camera</strong> - The default GoogleMaps 'photo'/'camera' icon.</div>
-		
-		<div><input type='radio' name='photo_style' value='icon_url'/>
-		<strong>Icon URL</strong> - Enter the URL of the icon you wish to use. (png, gif, or jpg)
-		<br/><input type='text' size='80' name='icon_url' value='http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'/></div>
-		
-		<div><input type='radio' name='photo_style' value='style_url'/>
-		<strong>Icon Style URL</strong> - Enter the URL of KML style to use. This will be the url of a KML document, followed by a # sign, followed by the style-id.
-		<br/><input type='text' size='80' name='icon_url' value='http://www2.adamfranco.com/photoStyleExamples.kml#parking'/></div>
-		
-		<div><input type='radio' name='photo_style' value='style'/>
-		<strong>KML Style</strong> - Enter the markup for the KML style to use.
-		<br/>&lt;Style id=\"flickr_photo\"&gt;
-		<br/><textarea name='style' rows='6' cols='80'>&lt;IconStyle&gt;
-	&lt;Icon&gt;
-		&lt;href&gt;http://maps.google.com/mapfiles/kml/pal4/icon46.png&lt;/href&gt;
-	&lt;/Icon&gt;
-&lt;/IconStyle&gt;</textarea><br/>&lt;/Style&gt;</div>
--->
         <div>
             <input type='checkbox' name='userLink' value='true' checked='checked'/>
             Include link to flickr user profile.
@@ -1278,23 +1169,6 @@ header("Content-type: text/html; charset=utf-8");
 ";
 
 }
-// Forward to GoogleMaps
-else if (isset($_REQUEST['format']) && $_REQUEST['format'] == 'open_google_maps') {
-	$url = "http://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF']."?";
-	
-	$params = array();
-	$params[] = "set=".$_REQUEST['set'];
-	if ($_REQUEST['size'])
-		$params[] = "size=".$_REQUEST['size'];
-	if ($_REQUEST['paths'])
-		$params[] = "paths=".$_REQUEST['paths'];
-	if ($_REQUEST['path_order'])
-		$params[] = "path_order=".$_REQUEST['path_order'];
-		
-	$url = "http://maps.google.com/maps?f=q&hl=en&ie=UTF8&om=1&t=h&q=".rawurlencode($url.implode("&", $params));
-	header("Location: $url");
-	exit;
-}
 
 // Output the KML
 else {
@@ -1307,7 +1181,6 @@ else {
             )),
 			$_REQUEST['set']);
 			
-		// $visitor = new HtmlVisitor;
 		$visitor = new KmlVisitor;
 		if (isset($_REQUEST['size'])) {
 			$visitor->setSize($_REQUEST['size']);
@@ -1333,3 +1206,5 @@ else {
 ";
 	}
 }
+
+?>
