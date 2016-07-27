@@ -53,7 +53,6 @@
 
 ini_set('display_errors', 1);
 require_once 'Flickr/API.php';
-    #require_once 'HashMap.php'
 
 /**
  * Photosets are Flickr's version of slideshows.
@@ -573,7 +572,7 @@ class Photo
 	 * @since 11/7/06
 	 */
 	function acceptVisitor ( $visitor ) {
-		$result = $visitor->visitPhoto($this);
+		$result = $visitor->visitPhoto(array($this));
 		return $result;
 	}
 }
@@ -746,6 +745,7 @@ class AdamsFlickr_API
                 error_log("Bad response from remote server:\n\tHTTP status code: $this->_http_code \n\tResponse body: $this->_http_body");
 			}else{
 				$this->_err_msg = "Couldn't connect to remote server";
+                error_log("Couldn't connect to remote server:\n\tHTTP status code: $this->_http_code \n\tResponse body: $this->_http_body");
 			}
 		
 			return 0;
@@ -862,13 +862,6 @@ class KmlVisitor {
 	private $printLines = false;
 	
 	/**
-	 * @var string $photoIcon; 
-	 * @access private
-	 * @since 8/22/07
-	 */
-	private $photoIcon = 'square';
-	
-	/**
 	 * Set the photo size
 	 * 
 	 * @param string $size
@@ -898,22 +891,6 @@ class KmlVisitor {
 			throw new Exception("Unknown style, '$style'. Should be one of false, 'chron', or 'upload'");
 		
 		$this->printLines = $style;
-	}
-	
-	/**
-	 * Set the photo icon
-	 * 
-	 * @param string $icon
-	 * @return void
-	 * @access public
-	 * @since 8/22/07
-	 */
-	public function setPhotoIcon ($icon) {
-		$icons = array('square', 'thumb', 'camera');
-		if (!in_array($icon, $icons))
-			throw new Exception("Unknown icon option, '$icon'. Must be one of ".implode(", ", $icons).".");
-		
-		$this->photoIcon = $icon;
 	}
     
     /**
@@ -949,8 +926,7 @@ class KmlVisitor {
                 <Folder>
                     <name>'.htmlspecialchars($photosetTitle).'</name>
                     <description>'.htmlspecialchars($photosetDescription).'</description>
-                    <Folder>
-                        <name>Photos</name>';
+                    <Folder><name>Photos</name>';
     }
 
     /**
@@ -1000,13 +976,41 @@ class KmlVisitor {
 	 * @since 11/7/06
 	 */
 	function visitPhotoset ( $photoset ) {
-        $this->printKMLHeader($photoset->title, $photoset->description);
+        $body = "";
 
-		while ($photoset->hasNextPhoto()) {
-			$photo = $photoset->nextPhoto();
-			$photo->acceptVisitor($this);
-		}
-		
+        if (isset($_REQUEST['geoGroup']) && $_REQUEST['geoGroup'] == 'true') {
+           
+            // group photos by geocoordinates
+            $groups = array();
+            while ($photoset->hasNextPhoto()) {
+                $photo = $photoset->nextPhoto();
+                if (isset($photo->longitude) && isset($photo->latitude)) {
+                    $geoString = $photo->longitude.",".$photo->latitude;
+                    
+                    if (!isset($groups[$geoString])) {
+                        $groups[$geoString] = array();
+                    }
+                    
+                    $groups[$geoString][] = $photo;
+                }
+            }
+            
+            // render each group
+            foreach($groups as $geoString => $group) {
+                $body .= $this->visitPhoto($group);
+            }
+            
+        } else {
+            while ($photoset->hasNextPhoto()) {
+                $photo = $photoset->nextPhoto();
+                $body .= $photo->acceptVisitor($this);
+            }
+        }
+        
+        $this->printKMLHeader($photoset->title, $photoset->description);
+        
+        print $body;
+        
         $this->printKMLFooter();
 	}
 	
@@ -1017,56 +1021,74 @@ class KmlVisitor {
 	 * @access public
 	 * @since 11/7/06
 	 */
-	function visitPhoto ( $photo ) {
-		if (isset($photo->longitude) && isset($photo->latitude)) {		
-			print "\n\t\t\t<Placemark>";
-			
-			print "\n\t\t\t\t<name>".htmlspecialchars($photo->title)."</name>";
+	function visitPhoto ( $photoArray ) {
+        $placemark = "";
+        $photoCount = count($photoArray);
+        $idx = 1;
+        $description = "";
+        $photoLinks = "";
+        $lastPhoto = NULL;
+        foreach ($photoArray as $photo) {
+            if (isset($photo->longitude) && isset($photo->latitude)) {
+                
+                $description .= "<p>";
+                
+                if ($photoCount > 1)
+                    $description .= $idx.": ";
+                
+                $description .= $photo->title." (".$photo->photoPageUrl.")";
+                
+                if (isset($_REQUEST['userLink']) && $_REQUEST['userLink'] == 'true') {
+                    $description .= " by ";
+                    if ($photo->ownerRealName)
+                        $description .= $photo->ownerRealName;
+                    else
+                        $description .= $photo->ownerUserName;
+                    $description .= " (http://www.flickr.com/people/".$photo->ownerId."/)";
+                }
+                
+                $description .= "</p>";
+                
+                if ($idx > 1)
+                    $photoLinks .= " ";
+                $photoLinks .= $photo->getImageUrl($this->photoSize);
+                
+                $this->linePoints[] = $photo->longitude.",".$photo->latitude.",0";
+                $this->takenDates[] = $photo->dateTaken;
+                $this->postDates[] = $photo->datePosted;
+                
+                $idx = $idx + 1;
+                $lastPhoto = $photo;
+            }
+        }
+        if (!is_null($lastPhoto)) {
             
-			print "\n\t\t\t\t<description><![CDATA[";
-			
-			print "<p>".$photo->description."</p>";
-			
-            if (isset($_REQUEST['userLink']) && $_REQUEST['userLink'] == 'true') {
-                print "<p>Photo by ";
-                print "<a href='http://www.flickr.com/people/".$photo->ownerId."/' title='Profile on Flickr'>";
-                if ($photo->ownerRealName)
-                    print $photo->ownerRealName;
-                else
-                    print $photo->ownerUserName;
-                print "</a>. ";
+            $placemark .= "\n\t\t\t<Placemark>";
+            
+            if ($photoCount > 1) {
+                $placemark .= "\n\t\t\t\t<name>Group of ".$photoCount." photos</name>";
+            } else {
+                $placemark .= "\n\t\t\t\t<name>".htmlspecialchars($lastPhoto->title)."</name>";
             }
             
-            print "<a href='".$photo->photoPageUrl."' title='Open photo page on Flickr.'>View on Flickr.</p>";
-			
-			print "]]></description>";
+            $placemark .= "\n\t\t\t\t<description><![CDATA[";
             
-            print "<ExtendedData><Data name='gx_media_links'><value>".$photo->getImageUrl($this->photoSize)."</value></Data></ExtendedData>";
-			
-			if ($this->photoIcon == 'camera')
-				print "\n\t\t\t\t<styleUrl>#flickr_photo</styleUrl>";
-			else {
-				print "\n\t\t\t\t<Style>";
-				print "\n\t\t\t\t\t<IconStyle>";
-				print "\n\t\t\t\t\t\t<Icon>";
-				print "\n\t\t\t\t\t\t\t<href>".$photo->getImageUrl($this->photoIcon)."</href>";
-				print "\n\t\t\t\t\t\t</Icon>";
-				print "\n\t\t\t\t\t</IconStyle>";
-				print "\n\t\t\t\t</Style>";
-			}			
-			
-			print "\n\t\t\t\t<Point>";
-			print "\n\t\t\t\t<coordinates>";
-			print $photo->longitude.",".$photo->latitude.",0";
-			print "</coordinates>";
-			print "\n\t\t\t\t</Point>";
-			
-			print "\n\t\t\t</Placemark>";
-			
-			$this->linePoints[] = $photo->longitude.",".$photo->latitude.",0";
-			$this->takenDates[] = $photo->dateTaken;
-			$this->postDates[] = $photo->datePosted;
-		}
+            if ($photoCount == 1)
+                $placemark .= "<p>".$lastPhoto->description."</p>";
+            
+            $placemark .= $description . "]]></description><ExtendedData><Data name='gx_media_links'><value>";
+            $placemark .= $photoLinks . "</value></Data></ExtendedData>\n\t\t\t\t<Style>\n\t\t\t\t\t<IconStyle>\n\t\t\t\t\t\t<Icon>";
+            
+            if ($photoCount == 1) {
+                $placemark .= "\n\t\t\t\t\t\t\t<href>".$lastPhoto->getImageUrl('square')."</href>";
+            } else {
+                $placemark .= "\n\t\t\t\t\t\t\t<href>http://maps.google.com/mapfiles/kml/pal4/icon46.png</href>";
+            }
+            $placemark .= "\n\t\t\t\t\t\t</Icon>\n\t\t\t\t\t</IconStyle>\n\t\t\t\t</Style>\n\t\t\t\t<Point>\n\t\t\t\t<coordinates>";
+            $placemark .= $lastPhoto->longitude.",".$lastPhoto->latitude.",0</coordinates>\n\t\t\t\t</Point>\n\t\t\t</Placemark>";
+            
+        }
+        return $placemark;
 	}
 }
 
@@ -1134,8 +1156,8 @@ header("Content-type: text/html; charset=utf-8");
 			<select name='size'>
 				<option value='square'>square</option>
 				<option value='thumb'>thumbnail</option>
-				<option value='small' selected='selected'>small</option>
-				<option value='medium'>medium</option>
+				<option value='small'>small</option>
+				<option value='medium' selected='selected'>medium</option>
 				<option value='large'>large</option>
 				<option value='original'>original</option>
 			</select>
@@ -1157,8 +1179,12 @@ header("Content-type: text/html; charset=utf-8");
 		</div>
 		
         <div>
-            <input type='checkbox' name='userLink' value='true' checked='checked'/>
+            <input type='checkbox' name='userLink' value='true'/>
             Include link to flickr user profile.
+        </div>
+        <div>
+            <input type='checkbox' name='geoGroup' value='true' checked='checked'/>
+            Group photos with shared coordinates into one point
         </div>
 	</div>
 	</form>
