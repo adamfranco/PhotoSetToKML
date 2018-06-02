@@ -269,7 +269,12 @@ class Photoset
 		}
 		
 		$photoNode = $this->currentPage->getElementsByTagName('photo')->item($this->currentPhoto % 100);
-		$photo = new Photo($this->api, 
+        if (is_null($photoNode)) {
+            // this set has a video in it, which doesn't work using the above method
+            $this->currentPhoto++;
+            return $this->nextPhoto();
+        }
+        $photo = new Photo($this->api, 
 							$photoNode->getAttribute('id'),
 							$photoNode->getAttribute('server'),
 							$photoNode->getAttribute('secret'),
