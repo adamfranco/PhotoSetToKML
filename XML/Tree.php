@@ -13,7 +13,7 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Bernd Römer <berndr@bonn.edu>                               |
+// | Authors: Bernd R?mer <berndr@bonn.edu>                               |
 // |          Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // |          Tomas V.V.Cox <cox@idecnet.com> (tree mapping from xml file)|
 // +----------------------------------------------------------------------+
@@ -42,7 +42,7 @@ require_once 'XML/Tree/Node.php';
 *    header('Content-Type: text/xml');
 *    $tree->dump();
 *
-* @author  Bernd Römer <berndr@bonn.edu>
+* @author  Bernd R?mer <berndr@bonn.edu>
 * @package XML
 * @version $Version$ - 1.0
 */
@@ -232,10 +232,10 @@ class XML_Tree extends XML_Parser
             if (!empty($this->cdata)) {
                 $parent_id = 'obj' . ($this->i - 1);
                 $parent    =& $this->$parent_id;
-                $parent->children[] = &new XML_Tree_Node(null, $this->cdata);
+                $parent->children[] = new XML_Tree_Node(null, $this->cdata);
             }
             $obj_id = 'obj' . $this->i++;
-            $this->$obj_id = &new XML_Tree_Node($elem, null, $attribs);
+            $this->$obj_id = new XML_Tree_Node($elem, null, $attribs);
         }
         $this->cdata = null;
         return null;
@@ -259,7 +259,7 @@ class XML_Tree extends XML_Parser
             // mixed contents
             if (count($node->children) > 0) {
                 if (trim($this->cdata)) {
-                    $node->children[] = &new XML_Tree_Node(null, $this->cdata);
+                    $node->children[] = new XML_Tree_Node(null, $this->cdata);
                 }
             } else {
                 $node->set_content($this->cdata);
