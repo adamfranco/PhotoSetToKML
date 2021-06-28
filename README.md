@@ -8,7 +8,6 @@ Photo Set to KML
 Features
 ---------
 * Generate a KML file from a Flickr photo set
-* Directly open the KML file in Google Maps
 * Choose what size image to include in the placemark description for each photo.
 * Optionaly draw a path (line) from photo to photo ordered in one of several ways: 
 * by date taken
@@ -19,11 +18,18 @@ Useful for making a quick and dirty map of a trip.
 
 Requirements
 ------------
-* PHP 5.2 or greater	http://www.php.net
+* PHP 5.6 or greater	http://www.php.net
 * PEAR Flickr API		http://code.iamcal.com/php/flickr/readme.htm
 
 Change-log
 ----------
+* 2016-07-27
+    * Updated for latest version of Google My Maps
+    * Remove option for viewing directly in Google Maps (no longer supported by Google)
+    * Added feature to suppress author display
+    * Added feature to group photos with same coordinates into single point
+    * Refactoring and changes for PHP 5.6
+    * Contributions by Eric Arthur Allen
 * 2007-08-27
     * Now uses htmlspecialchars() to clean titles instead of htmlentities(), 
       the latter of which was causing excessive translation of German 
